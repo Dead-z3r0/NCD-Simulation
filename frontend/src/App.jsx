@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API_BASE, getWsUrl } from './config';
 import Navbar from './components/Navbar';
 import BondCard from './components/BondCard';
 import BuyModal from './components/BuyModal';
@@ -21,7 +22,7 @@ export default function App() {
   // Fetch initial bonds via REST
   const fetchBonds = async () => {
     try {
-      const res = await fetch('/api/bonds');
+      const res = await fetch(`${API_BASE}/api/bonds`);
       const data = await res.json();
       if (data.success) {
         setBonds(data.bonds);
@@ -35,8 +36,7 @@ export default function App() {
     fetchBonds();
 
     // Direct WebSocket connection to backend on port 4000 (with fallback to current host)
-    const host = window.location.hostname || 'localhost';
-    const wsUrl = `ws://${host}:4000`;
+    const wsUrl = getWsUrl();
     let ws;
 
     try {
@@ -82,7 +82,7 @@ export default function App() {
 
   const handleResetClick = async (bond) => {
     try {
-      const res = await fetch(`/api/bonds/${bond.id}/reset-stress`, {
+      const res = await fetch(`${API_BASE}/api/bonds/${bond.id}/reset-stress`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ units: 10 })
@@ -104,7 +104,7 @@ export default function App() {
     });
 
     try {
-      await fetch('/api/stress-test/run', {
+      await fetch(`${API_BASE}/api/stress-test/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params)

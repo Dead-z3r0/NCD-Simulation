@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, CheckCircle2, AlertCircle, Shield, Clock, Hash } from 'lucide-react';
+import { API_BASE } from '../config';
 
 const PRESET_PROFILES = [
   {
@@ -59,7 +60,7 @@ export default function BuyModal({ bond, onClose, onSuccess }) {
     await new Promise(r => setTimeout(r, Math.min(activeLatency, 300)));
 
     try {
-      const response = await fetch(`/api/bonds/${bond.id}/buy`, {
+      const response = await fetch(`${API_BASE}/api/bonds/${bond.id}/buy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

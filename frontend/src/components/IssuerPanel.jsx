@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { PlusCircle, Sliders, Shield, Zap, RotateCcw, CheckCircle } from 'lucide-react';
+import { API_BASE } from '../config';
 
 export default function IssuerPanel({ bonds, onBondCreated, onStrategyChanged }) {
   const [newBond, setNewBond] = useState({
@@ -30,7 +31,7 @@ export default function IssuerPanel({ bonds, onBondCreated, onStrategyChanged })
     setLoading(true);
     setStatusMsg('');
     try {
-      const res = await fetch('/api/bonds', {
+      const res = await fetch(`${API_BASE}/api/bonds`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newBond)
@@ -67,7 +68,7 @@ export default function IssuerPanel({ bonds, onBondCreated, onStrategyChanged })
     setLoading(true);
     setStatusMsg('');
     try {
-      const res = await fetch(`/api/bonds/${currentBond.id}/strategy`, {
+      const res = await fetch(`${API_BASE}/api/bonds/${currentBond.id}/strategy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -91,7 +92,7 @@ export default function IssuerPanel({ bonds, onBondCreated, onStrategyChanged })
   const handleResetPool = async (units = 10) => {
     if (!currentBond) return;
     try {
-      const res = await fetch(`/api/bonds/${currentBond.id}/reset-stress`, {
+      const res = await fetch(`${API_BASE}/api/bonds/${currentBond.id}/reset-stress`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ units })
