@@ -1,0 +1,15 @@
+{
+  "name": "ncd-concurrency-backend",
+  "version": "1.0.0",
+  "description": "High-concurrency NCD IPO bond allocation engine with dynamic queueing & rate limiting",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/test_engine.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "ws": "^8.18.0"
+  }
+}
