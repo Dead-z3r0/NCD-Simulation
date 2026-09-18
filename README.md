@@ -31,5 +31,5 @@ This engine demonstrates a resilient architecture that solves both problems simu
 - **Token Bucket Rate Limiting:** Per-bond adaptive leaky/token bucket rate limiters protecting against traffic spikes and DDoS surges with immediate `429 Too Many Requests` shedding.
 - **Full-Duplex WebSockets:** Real-time push stream for live bond book updates, terminal concurrency event logs, and continuous allocation metric ticks.
 - **Cryptographic Audit Ledger:** Real-time SHA-256 transaction hash generation with continuous mathematical reconciliation (`units_sold + remaining_units == total_units`).
-- **In-Browser 10k Stress Test Visualizer:** Trigger and observe concurrent load simulations in real-time with visual graphs, latency distributions, and throughput (RPS) meters.
+- **In-Browser 10k Stress Test Visualizer:** Trigger and observe concurrent load simulations in real-time with visual graphs, latency distributions, and throughput (RPS) meters. You can change the number of concurrent users accordingly while viewing the number of success and failed lock allocation.
 
