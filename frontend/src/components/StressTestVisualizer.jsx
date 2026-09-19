@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { Cpu, Play, CheckCircle2, ShieldCheck, RefreshCw, Activity, Layers } from 'lucide-react';
+import { Cpu, Play, CheckCircle2, ShieldCheck, RefreshCw, Activity, Layers, RotateCcw } from 'lucide-react';
+import { API_BASE } from '../config';
 
 export default function StressTestVisualizer({ bonds, benchmarkState, onRunBenchmark }) {
   const [selectedBondId, setSelectedBondId] = useState('bond-navi-10l');
   const [requestsCount, setRequestsCount] = useState(10000);
   const [poolUnits, setPoolUnits] = useState(10);
   const [concurrency, setConcurrency] = useState(500);
+  const [resetting, setResetting] = useState(false);
 
   const activeBond = bonds.find(b => b.id === selectedBondId) || bonds[0];
 
@@ -14,9 +16,25 @@ export default function StressTestVisualizer({ bonds, benchmarkState, onRunBench
       onRunBenchmark({
         bondId: activeBond.id,
         totalRequests: requestsCount,
-        poolUnits,
+        poolUnits: Number(poolUnits) || 10,
         concurrency
       });
+    }
+  };
+
+  const handleQuickReset = async () => {
+    if (!activeBond) return;
+    setResetting(true);
+    try {
+      await fetch(`${API_BASE}/api/bonds/${activeBond.id}/reset-stress`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ units: Number(poolUnits) || 10 })
+      });
+    } catch (e) {
+      console.error('Quick reset error:', e);
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -25,6 +43,7 @@ export default function StressTestVisualizer({ bonds, benchmarkState, onRunBench
   const result = benchmarkState?.result;
 
   const dynamicUserCount = Number(requestsCount) > 0 ? Number(requestsCount) : 10000;
+  const isSoldOut = activeBond?.remaining_units === 0;
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1.05fr 0.95fr', gap: 28 }}>
@@ -35,6 +54,16 @@ export default function StressTestVisualizer({ bonds, benchmarkState, onRunBench
             <Cpu size={18} color="#059669" />
             Concurrency Benchmark & Stress Testing
           </h2>
+          <button
+            className="btn-secondary"
+            style={{ padding: '5px 10px', fontSize: 12 }}
+            disabled={isRunning || resetting}
+            onClick={handleQuickReset}
+            title="Reset active bond pool to specified units"
+          >
+            <RotateCcw size={13} className={resetting ? 'spin' : ''} />
+            Reset Pool
+          </button>
         </div>
 
         <p style={{ color: '#64748B', fontSize: 13, marginBottom: 20, lineHeight: 1.6 }}>
@@ -48,11 +77,18 @@ export default function StressTestVisualizer({ bonds, benchmarkState, onRunBench
             className="form-select"
             value={selectedBondId}
             disabled={isRunning}
-            onChange={(e) => setSelectedBondId(e.target.value)}
+            onChange={(e) => {
+              const newId = e.target.value;
+              setSelectedBondId(newId);
+              const found = bonds.find(b => b.id === newId);
+              if (found) {
+                setPoolUnits(found.remaining_units > 0 ? found.remaining_units : 10);
+              }
+            }}
           >
             {bonds.map(b => (
               <option key={b.id} value={b.id}>
-                {b.name} (Face Value: ₹{b.face_value.toLocaleString('en-IN')})
+                {b.name} ({b.remaining_units} / {b.total_units} units left)
               </option>
             ))}
           </select>
@@ -73,19 +109,25 @@ export default function StressTestVisualizer({ bonds, benchmarkState, onRunBench
           </div>
 
           <div className="form-group">
-            <label className="form-label">Remaining Pool Units</label>
+            <label className="form-label">Remaining Pool Units (X Successes)</label>
             <input
               type="number"
               min="1"
               className="form-input"
               value={poolUnits}
               disabled={isRunning}
-              onChange={(e) => setPoolUnits(parseInt(e.target.value) || 10)}
+              onChange={(e) => setPoolUnits(parseInt(e.target.value) || '')}
             />
           </div>
         </div>
 
         <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 8, padding: 14, marginBottom: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
+            <span style={{ color: '#64748B' }}>Current Pool Status:</span>
+            <strong style={{ color: isSoldOut ? '#DC2626' : '#059669' }}>
+              {isSoldOut ? 'Sold Out (Will auto-reset on launch)' : `${activeBond?.remaining_units} Units Available`}
+            </strong>
+          </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
             <span style={{ color: '#64748B' }}>Active Lock Strategy:</span>
             <strong style={{ color: '#0F172A' }}>
@@ -95,7 +137,7 @@ export default function StressTestVisualizer({ bonds, benchmarkState, onRunBench
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
             <span style={{ color: '#64748B' }}>Expected Result:</span>
             <strong style={{ color: '#059669' }}>
-              {poolUnits} Successes, {Math.max(0, dynamicUserCount - poolUnits).toLocaleString()} Rejections
+              {poolUnits || 10} Successes, {Math.max(0, dynamicUserCount - (Number(poolUnits) || 10)).toLocaleString()} Rejections
             </strong>
           </div>
         </div>

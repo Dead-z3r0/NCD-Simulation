@@ -276,9 +276,10 @@ app.post('/api/stress-test/run', async (req, res) => {
   if (!bond) return res.status(404).json({ success: false, error: 'Bond not found' });
 
   // Reset pool to exact units first
-  resetBondPool(bondId, poolUnits);
+  const resetBond = resetBondPool(bondId, poolUnits);
   // Relax rate limiter during stress test so we test the lock/queue race conditions directly
   rateLimiterRegistry.updateLimiter(bondId, 50000, 50000);
+  rateLimiterRegistry.resetLimiter(bondId);
 
   isBenchmarkRunning = true;
   res.json({

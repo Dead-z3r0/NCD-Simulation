@@ -59,9 +59,15 @@ class TokenBucketRateLimiter {
    */
   updateConfig(rate, capacity) {
     this.refill();
+    const prevCapacity = this.capacity;
     this.rate = Number(rate) || this.rate;
     this.capacity = Number(capacity) || this.capacity;
-    this.tokens = Math.min(this.tokens, this.capacity);
+    // If capacity was expanded (e.g. for benchmark or issuer adjustment), refill tokens
+    if (this.capacity > prevCapacity) {
+      this.tokens = this.capacity;
+    } else {
+      this.tokens = Math.min(this.tokens, this.capacity);
+    }
   }
 
   getMetrics() {
@@ -107,9 +113,7 @@ class RateLimiterRegistry {
   }
 
   resetLimiter(bondId) {
-    if (this.limiters.has(bondId)) {
-      this.limiters.get(bondId).reset();
-    }
+    this.getLimiter(bondId).reset();
   }
 }
 

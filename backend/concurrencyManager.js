@@ -15,7 +15,7 @@ class DistributedLockManager {
   /**
    * Acquire lock with TTL (time to live) in milliseconds
    */
-  async acquire(resourceKey, holderId, ttlMs = 100) {
+  async acquire(resourceKey, holderId, ttlMs = 1000) {
     const now = Date.now();
     const existing = this.locks.get(resourceKey);
 
@@ -26,19 +26,28 @@ class DistributedLockManager {
         if (!this.lockWaiters.has(resourceKey)) {
           this.lockWaiters.set(resourceKey, []);
         }
+
+        let waiterEntry;
         const timer = setTimeout(() => {
-          // Timeout waiting for lock
+          // Remove from waiters list so it doesn't receive an orphaned lock
+          const waiters = this.lockWaiters.get(resourceKey);
+          if (waiters && waiterEntry) {
+            const idx = waiters.indexOf(waiterEntry);
+            if (idx !== -1) waiters.splice(idx, 1);
+          }
           resolve({ acquired: false, reason: 'Lock acquisition timeout' });
         }, ttlMs);
 
-        this.lockWaiters.get(resourceKey).push({
+        waiterEntry = {
           resolve: (result) => {
             clearTimeout(timer);
             resolve(result);
           },
           holderId,
           ttlMs
-        });
+        };
+
+        this.lockWaiters.get(resourceKey).push(waiterEntry);
       });
     }
 
@@ -64,10 +73,11 @@ class DistributedLockManager {
 
     this.locks.delete(resourceKey);
 
-    // Dispatch to next waiter in queue
+    // Dispatch to next active waiter in queue
     const waiters = this.lockWaiters.get(resourceKey);
-    if (waiters && waiters.length > 0) {
+    while (waiters && waiters.length > 0) {
       const nextWaiter = waiters.shift();
+      if (!nextWaiter) continue;
       const newLockToken = crypto.randomUUID();
       this.locks.set(resourceKey, {
         lockToken: newLockToken,
@@ -75,6 +85,7 @@ class DistributedLockManager {
         holderId: nextWaiter.holderId
       });
       nextWaiter.resolve({ acquired: true, lockToken: newLockToken });
+      break;
     }
 
     return true;
@@ -217,16 +228,25 @@ class ConcurrencyManager {
       this.requestQueues.set(bondId, []);
     }
     const queue = this.requestQueues.get(bondId);
-    queue.push(item);
 
-    // Sort queue based on strategy
     const bond = getBond(bondId);
     if (bond && bond.allocation_strategy === 'portfolio_profit') {
-      // Highest portfolio value first
-      queue.sort((a, b) => b.priorityScore - a.priorityScore);
+      // Binary search insertion O(log N) for priority order without freezing event loop
+      let low = 0;
+      let high = queue.length;
+      while (low < high) {
+        const mid = (low + high) >>> 1;
+        if (queue[mid].priorityScore < item.priorityScore) {
+          high = mid;
+        } else {
+          low = mid + 1;
+        }
+      }
+      queue.splice(low, 0, item);
     } else {
-      // Fair Retail: Sequential ticket order
-      queue.sort((a, b) => a.ticketNumber - b.ticketNumber);
+      // Fair Retail: Sequential ticket order. Since ticket numbers are strictly increasing,
+      // appending to the queue naturally guarantees perfect FIFO ordering in O(1) time.
+      queue.push(item);
     }
 
     this.scheduleQueueDrain(bondId);
@@ -247,8 +267,8 @@ class ConcurrencyManager {
     while (queue && queue.length > 0) {
       const item = queue.shift();
 
-      // Acquire Distributed Lock on Bond Resource
-      const lock = await this.lockManager.acquire(`lock:bond:${bondId}`, item.userId, 150);
+      // Acquire Distributed Lock on Bond Resource with safe 2000ms TTL
+      const lock = await this.lockManager.acquire(`lock:bond:${bondId}`, item.userId, 2000);
       if (!lock.acquired) {
         // Re-enqueue or reject
         item.resolve({
