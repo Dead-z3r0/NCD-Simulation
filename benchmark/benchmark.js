@@ -1,7 +1,7 @@
 /**
  * 10,000 Concurrent Users Benchmark Runner
  * Simulates high-contention rush on the last ₹10 Lakhs of an NCD bond offering.
- * Proves that exactly 10 succeed and 9,990 are gracefully rejected with 0 margin error.
+ * Proves that exactly x succeed and 10,000 - x users are gracefully rejected with 0 margin error.
  */
 
 const { EventEmitter } = require('node:events');
