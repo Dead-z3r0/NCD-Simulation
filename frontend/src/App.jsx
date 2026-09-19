@@ -50,12 +50,24 @@ export default function App() {
         const msg = JSON.parse(event.data);
         if (msg.type === 'INIT') {
           setBonds(msg.bonds);
+          if (msg.logs && Array.isArray(msg.logs) && msg.logs.length > 0) {
+            setLogs(msg.logs);
+          }
         } else if (msg.type === 'BOND_UPDATED') {
           setBonds(prev => prev.map(b => b.id === msg.bond.id ? msg.bond : b));
         } else if (msg.type === 'BOND_CREATED') {
           setBonds(prev => [msg.bond, ...prev]);
         } else if (msg.type === 'TERMINAL_LOG') {
-          setLogs(prev => [...prev.slice(-300), msg.log]);
+          setLogs(prev => {
+            const newLog = msg.log;
+            const updated = [...prev, newLog];
+            if (updated.length > 600) {
+              const successes = updated.filter(l => l.type === 'ALLOCATION_SUCCESS' || (l.type === 'LOCK_ACQUIRED' && l.data?.status === 'SUCCESS'));
+              const others = updated.filter(l => l.type !== 'ALLOCATION_SUCCESS' && !(l.type === 'LOCK_ACQUIRED' && l.data?.status === 'SUCCESS'));
+              return [...successes.slice(-200), ...others.slice(-400)];
+            }
+            return updated;
+          });
         } else if (msg.type === 'STRESS_TEST_PROGRESS') {
           setBenchmarkState(prev => ({
             ...prev,

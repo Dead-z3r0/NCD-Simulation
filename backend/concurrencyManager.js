@@ -280,13 +280,6 @@ class ConcurrencyManager {
         continue;
       }
 
-      this.emitLog('LOCK_ACQUIRED', `Lock acquired by session ${item.userId} (Ticket #${item.ticketNumber})`, {
-        bondId,
-        userId: item.userId,
-        ticket: item.ticketNumber,
-        strategy: item.strategy
-      });
-
       try {
         // Double-check pool availability and perform atomic deduction
         const bond = getBond(bondId);
@@ -298,6 +291,15 @@ class ConcurrencyManager {
 
         if (deduction.success) {
           const totalAmount = item.unitsRequested * bond.face_value;
+
+          // Always emit lock acquisition for successful orders
+          this.emitLog('LOCK_ACQUIRED', `[SUCCESS] Lock acquired by session ${item.userId} (Ticket #${item.ticketNumber})`, {
+            bondId,
+            userId: item.userId,
+            ticket: item.ticketNumber,
+            strategy: item.strategy,
+            status: 'SUCCESS'
+          });
 
           recordTransaction({
             id: txId,
@@ -356,12 +358,24 @@ class ConcurrencyManager {
             timestamp: Date.now()
           });
 
-          this.emitLog('ALLOCATION_REJECTED', `Request from ${item.userId} rejected: ${deduction.reason}. Zero over-allocation guaranteed.`, {
-            bondId,
-            userId: item.userId,
-            remainingUnits: deduction.remaining,
-            ticket: item.ticketNumber
-          });
+          // Sample rejection logs under mass concurrency to avoid evicting successful locks
+          const shouldLog = item.ticketNumber <= 10 || item.ticketNumber % 250 === 0 || queue.length === 0;
+          if (shouldLog) {
+            this.emitLog('LOCK_ACQUIRED', `Lock released (Pool Depleted) by session ${item.userId} (Ticket #${item.ticketNumber})`, {
+              bondId,
+              userId: item.userId,
+              ticket: item.ticketNumber,
+              strategy: item.strategy,
+              status: 'REJECTED'
+            });
+
+            this.emitLog('ALLOCATION_REJECTED', `Request from ${item.userId} rejected: ${deduction.reason}. Zero over-allocation guaranteed.`, {
+              bondId,
+              userId: item.userId,
+              remainingUnits: deduction.remaining,
+              ticket: item.ticketNumber
+            });
+          }
 
           item.resolve({
             success: false,

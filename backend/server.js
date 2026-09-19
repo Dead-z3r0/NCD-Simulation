@@ -40,8 +40,17 @@ function broadcast(payload) {
   });
 }
 
+const recentLogs = [];
+
 // Log subscriber: stream every concurrency event to connected WebSocket clients
 eventBus.on('log', (logEntry) => {
+  recentLogs.push(logEntry);
+  if (recentLogs.length > 500) {
+    const successes = recentLogs.filter(l => l.type === 'ALLOCATION_SUCCESS');
+    const others = recentLogs.filter(l => l.type !== 'ALLOCATION_SUCCESS');
+    recentLogs.length = 0;
+    recentLogs.push(...successes.slice(-150), ...others.slice(-350));
+  }
   broadcast({
     type: 'TERMINAL_LOG',
     log: logEntry
@@ -50,11 +59,12 @@ eventBus.on('log', (logEntry) => {
 
 // WebSocket Connection Handler
 wss.on('connection', (ws) => {
-  // Send initial snapshot
+  // Send initial snapshot including recent logs
   const bonds = listBonds();
   ws.send(JSON.stringify({
     type: 'INIT',
     bonds,
+    logs: recentLogs,
     timestamp: Date.now()
   }));
 

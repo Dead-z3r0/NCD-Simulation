@@ -14,10 +14,13 @@ export default function TerminalLogs({ logs, onClear }) {
 
   const filteredLogs = logs.filter(log => {
     if (filter === 'ALL') return true;
-    if (filter === 'SUCCESS') return log.type === 'ALLOCATION_SUCCESS';
+    if (filter === 'SUCCESS') {
+      return log.type === 'ALLOCATION_SUCCESS' || 
+             (log.type === 'LOCK_ACQUIRED' && (log.data?.status === 'SUCCESS' || log.message?.includes('[SUCCESS]')));
+    }
     if (filter === 'REJECTED') return log.type === 'ALLOCATION_REJECTED' || log.type === 'RATE_LIMIT_THROTTLED';
     if (filter === 'LOCK') return log.type === 'LOCK_ACQUIRED';
-    if (filter === 'BENCHMARK') return log.type.includes('BENCHMARK');
+    if (filter === 'BENCHMARK') return log.type.includes('BENCHMARK') || log.type.includes('POOL') || log.type.includes('STRATEGY');
     return true;
   });
 
